@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drift Arena — BMW 2002</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { overflow:hidden; font-family:'Segoe UI', system-ui, sans-serif; background:#87CEEB; color:#fff; }
+
+#hud {
+  position:absolute; bottom:30px; left:50%; transform:translateX(-50%); z-index:10;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(10px); padding:12px 24px; border-radius:16px;
+  border:1px solid rgba(255,255,255,.08); text-align:center; pointer-events:none; user-select:none; min-width:200px;
+}
+#hud .speed { font-size:2rem; font-weight:700; color:#ff6b35; }
+#hud .speed small { font-size:1rem; font-weight:400; color:#888; }
+#hud .coords { font-size:.8rem; color:#88ddff; font-family:'Courier New', monospace; margin-top:4px; }
+#hud .model-name { font-size:.9rem; color:#ff6b35; font-weight:500; margin-top:2px; }
+#hud .players-count { font-size:.7rem; color:#88ff88; margin-top:2px; }
+
+#controls-hint {
+  position:absolute; top:20px; left:50%; transform:translateX(-50%); z-index:10;
+  background:rgba(0,0,0,.6); backdrop-filter:blur(6px); padding:10px 20px; border-radius:30px;
+  font-size:.8rem; color:#aaa; border:1px solid rgba(255,255,255,.05); pointer-events:none; user-select:none; white-space:nowrap;
+}
+#controls-hint strong { color:#fff; }
+
+#loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; text-align:center; pointer-events:none; }
+#loading .spinner {
+  width:50px; height:50px; margin:0 auto 16px; border:4px solid rgba(255,255,255,.08);
+  border-top:4px solid #ff6b35; border-radius:50%; animation:spin 1s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+#loading p { font-size:1rem; opacity:.7; }
+
+#menuToggle {
+  position:absolute; top:20px; left:20px; z-index:15; width:50px; height:50px; border-radius:50%;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,.15);
+  color:#fff; font-size:1.6rem; cursor:pointer; transition:all .3s; display:flex; align-items:center;
+  justify-content:center; user-select:none; box-shadow:0 4px 15px rgba(0,0,0,.3);
+}
+#menuToggle:hover { background:rgba(255,107,53,.3); border-color:#ff6b35; transform:scale(1.08); }
+
+#carSelector {
+  position:absolute; top:80px; left:20px; z-index:15; background:rgba(0,0,0,.85); backdrop-filter:blur(12px);
+  border-radius:16px; border:1px solid rgba(255,255,255,.08); min-width:220px; max-height:calc(100vh - 120px);
+  overflow:hidden; display:none; flex-direction:column; padding:12px 16px 16px 16px; gap:8px; box-shadow:0 8px 30px rgba(0,0,0,.5);
+}
+#carSelector.open { display:flex; }
+.car-selector-header { display:flex; justify-content:space-between; align-items:center; user-select:none; border-bottom:1px solid rgba(255,255,255,.05); padding-bottom:8px; }
+.car-selector-header h4 { color:#888; font-size:.8rem; text-transform:uppercase; letter-spacing:1px; margin:0; }
+.car-selector-header .close-menu { background:none; border:none; color:#888; font-size:1.2rem; cursor:pointer; }
+.car-selector-header .close-menu:hover { color:#fff; }
+.car-list { display:flex; flex-direction:column; gap:6px; max-height:calc(100vh - 280px); overflow-y:auto; padding-right:4px; }
+.car-list::-webkit-scrollbar { width:4px; }
+.car-list::-webkit-scrollbar-track { background:rgba(255,255,255,.05); border-radius:4px; }
+.car-list::-webkit-scrollbar-thumb { background:#ff6b35; border-radius:4px; }
+.car-btn {
+  background:rgba(255,255,255,.05); border:2px solid transparent; color:#fff; padding:6px 10px;
+  border-radius:8px; font-size:.85rem; cursor:pointer; transition:all .3s; text-align:left;
+  font-weight:400; width:100%; white-space:nowrap;
+}
+.car-btn:hover { background:rgba(255,255,255,.1); }
+.car-btn.active { background:rgba(255,107,53,.2); border-color:#ff6b35; }
+.car-btn .credit { display:block; font-size:.5rem; color:#666; margin-top:2px; padding-left:4px; line-height:1.3; white-space:normal; }
+.car-btn .locked { color:#ff6b35; font-size:.6rem; margin-left:6px; }
+.promo-block { border-top:1px solid rgba(255,255,255,.08); padding-top:10px; margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+.promo-block label { color:#aaa; font-size:.7rem; text-transform:uppercase; letter-spacing:.5px; }
+.promo-row { display:flex; gap:6px; align-items:center; }
+.promo-row input { flex:1; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:#fff; padding:6px 10px; border-radius:6px; font-size:.85rem; outline:none; }
+.promo-row input:focus { border-color:#ff6b35; }
+.promo-row button { background:#ff6b35; border:none; color:#fff; padding:6px 14px; border-radius:6px; font-size:.8rem; cursor:pointer; font-weight:500; white-space:nowrap; }
+.promo-row button:hover { background:#ff7a4a; }
+.promo-message { font-size:.7rem; color:#88ddff; min-height:1.2em; }
+.promo-message.error { color:#ff6b6b; }
+.promo-message.success { color:#88ff88; }
+
+#multiplayerPanel {
+  position:absolute; top:80px; right:20px; z-index:15; background:rgba(0,0,0,.85); backdrop-filter:blur(12px);
+  border-radius:16px; border:1px solid rgba(255,255,255,.08); padding:16px; min-width:200px;
+  display:none; flex-direction:column; gap:8px;
+}
+#multiplayerPanel.open { display:flex; }
+#multiplayerPanel h4 { color:#ff6b35; font-size:.8rem; text-transform:uppercase; letter-spacing:1px; text-align:center; margin-bottom:4px; }
+#multiplayerPanel .mp-row { display:flex; gap:6px; align-items:center; }
+#multiplayerPanel .mp-row input { flex:1; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:#fff; padding:6px 10px; border-radius:6px; font-size:.8rem; outline:none; }
+#multiplayerPanel .mp-row input:focus { border-color:#ff6b35; }
+#multiplayerPanel .mp-row button { background:#ff6b35; border:none; color:#fff; padding:6px 14px; border-radius:6px; font-size:.75rem; cursor:pointer; font-weight:500; white-space:nowrap; }
+#multiplayerPanel .mp-row button.secondary { background:rgba(255,255,255,.1); }
+#multiplayerPanel .mp-row button.secondary:hover { background:rgba(255,255,255,.2); }
+#multiplayerPanel .mp-status { font-size:.7rem; color:#aaa; text-align:center; margin-top:4px; }
+#multiplayerPanel .mp-players { font-size:.7rem; color:#88ff88; text-align:center; }
+
+#mpToggle {
+  position:absolute; bottom:100px; right:90px; z-index:11; width:50px; height:50px; border-radius:50%;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,.15);
+  color:#fff; font-size:1.4rem; cursor:pointer; transition:all .3s; display:flex; align-items:center;
+  justify-content:center; user-select:none; box-shadow:0 4px 15px rgba(0,0,0,.3);
+}
+#mpToggle:hover { background:rgba(255,107,53,.3); border-color:#ff6b35; transform:scale(1.08); }
+
+#garagePanel {
+  position:absolute; bottom:100px; left:50%; transform:translateX(-50%); z-index:12;
+  background:rgba(0,0,0,.85); backdrop-filter:blur(12px); padding:16px 24px; border-radius:16px;
+  border:1px solid rgba(255,255,255,.1); display:none; min-width:350px; max-width:550px; text-align:center;
+  gap:12px; flex-direction:column;
+}
+#garagePanel h4 { color:#ff6b35; font-size:.9rem; letter-spacing:.5px; }
+#garagePanel .garage-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center; }
+#garagePanel .garage-row label { color:#aaa; font-size:.75rem; }
+#garagePanel input[type="color"] { width:40px; height:40px; border:2px solid rgba(255,255,255,.2); border-radius:8px; cursor:pointer; background:none; padding:2px; }
+#garagePanel .garage-btn { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); color:#fff; padding:6px 14px; border-radius:8px; font-size:.75rem; cursor:pointer; }
+#garagePanel .garage-btn.primary { background:#ff6b35; border-color:#ff6b35; font-weight:500; }
+#garagePanel .close-garage { position:absolute; top:4px; right:10px; background:none; border:none; color:#888; font-size:1.2rem; cursor:pointer; }
+#garagePanel .rotate-controls { display:flex; gap:10px; justify-content:center; align-items:center; }
+#garagePanel .rotate-controls .rot-btn { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); color:#fff; padding:6px 16px; border-radius:8px; font-size:.85rem; cursor:pointer; }
+
+#garageToggle {
+  position:absolute; bottom:100px; right:30px; z-index:11; width:50px; height:50px; border-radius:50%;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,.15);
+  color:#fff; font-size:1.4rem; cursor:pointer; transition:all .3s; display:flex; align-items:center;
+  justify-content:center; user-select:none; box-shadow:0 4px 15px rgba(0,0,0,.3);
+}
+#garageToggle:hover { background:rgba(255,107,53,.3); border-color:#ff6b35; transform:scale(1.08); }
+
+#creditPanel {
+  position:absolute; bottom:135px; left:50%; transform:translateX(-50%); z-index:10;
+  background:rgba(0,0,0,.5); backdrop-filter:blur(6px); padding:6px 16px; border-radius:20px;
+  font-size:.6rem; color:#888; border:1px solid rgba(255,255,255,.05); pointer-events:none; user-select:none;
+  text-align:center; max-width:90%; line-height:1.4;
+}
+
+#minimap {
+  position:absolute; top:20px; right:20px; z-index:10; width:180px; height:180px;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(8px); border-radius:12px;
+  border:2px solid rgba(255,255,255,.15); overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.4); pointer-events:none;
+}
+#minimap canvas { width:100%; height:100%; display:block; }
+#minimap-label { position:absolute; bottom:4px; left:50%; transform:translateX(-50%); font-size:.5rem; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:1px; }
+
+@media (max-width:768px) {
+  #hud { padding:8px 16px; min-width:auto; width:90%; bottom:16px; }
+  #hud .speed { font-size:1.5rem; }
+  #controls-hint { font-size:.6rem; padding:6px 14px; white-space:normal; max-width:90%; top:12px; }
+  #menuToggle { top:12px; left:12px; width:44px; height:44px; font-size:1.3rem; }
+  #carSelector { left:10px; top:70px; min-width:180px; max-height:calc(100vh - 140px); padding:10px 12px; }
+  .car-btn { font-size:.75rem; padding:5px 8px; }
+  #garagePanel { bottom:80px; min-width:90%; padding:12px 16px; }
+  #garageToggle { bottom:80px; right:15px; width:42px; height:42px; font-size:1.2rem; }
+  #mpToggle { bottom:80px; right:65px; width:42px; height:42px; font-size:1.2rem; }
+  #multiplayerPanel { right:10px; top:70px; min-width:160px; }
+  #minimap { width:120px; height:120px; top:12px; right:12px; }
+}
+</style>
+</head>
+<body>
+
+<div id="menuToggle">🚗</div>
+
+<div id="carSelector">
+  <div class="car-selector-header">
+    <h4>🚗 ВЫБОР МАШИНЫ</h4>
+    <button class="close-menu" id="closeMenu">✕</button>
+  </div>
+  <div class="car-list" id="carList"></div>
+  <div class="promo-block">
+    <label>🔑 Промокод</label>
+    <div class="promo-row">
+      <input type="text" id="promoInput" placeholder="Введите код" />
+      <button id="promoBtn">Активировать</button>
+    </div>
+    <div class="promo-message" id="promoMessage"></div>
+  </div>
+</div>
+
+<div id="multiplayerPanel">
+  <h4>🌐 МУЛЬТИПЛЕЕР</h4>
+  <div class="mp-row">
+    <input type="text" id="mpRoomInput" placeholder="ID комнаты" />
+    <button id="mpJoinBtn">Войти</button>
+  </div>
+  <div class="mp-row">
+    <button id="mpCreateBtn" class="secondary">Создать</button>
+    <button id="mpLeaveBtn" class="secondary" style="display:none;">Покинуть</button>
+  </div>
+  <div class="mp-status" id="mpStatus">Не подключено</div>
+  <div class="mp-players" id="mpPlayers"></div>
+</div>
+
+<div id="controls-hint">
+  <strong>W / ↑</strong> — вперёд &nbsp;·&nbsp; <strong>S / ↓</strong> — назад &nbsp;·&nbsp;
+  <strong>A / ←</strong> <strong>D / →</strong> — руль &nbsp;·&nbsp; <strong>Пробел</strong> — ручник (дрифт)
+</div>
+
+<div id="mpToggle">🌐</div>
+<div id="garageToggle">🔧</div>
+
+<div id="garagePanel">
+  <button class="close-garage" id="closeGarage">✕</button>
+  <h4>🔧 ГАРАЖ</h4>
+  <div class="garage-row">
+    <label>🎨 Цвет:</label>
+    <input type="color" id="colorPicker" value="#ff6b35" />
+    <button class="garage-btn" id="applyColorBtn">Применить</button>
+    <button class="garage-btn" id="resetColorBtn">Сбросить</button>
+  </div>
+  <div class="garage-row">
+    <label>🔄 Вращение:</label>
+    <div class="rotate-controls">
+      <button class="rot-btn" id="rotLeft">⟲ Влево</button>
+      <button class="rot-btn" id="rotRight">⟳ Вправо</button>
+      <button class="rot-btn" id="rotReset">↺ Сброс</button>
+    </div>
+  </div>
+  <div class="garage-row">
+    <label>📄 Текстуры:</label>
+    <div class="texture-presets" id="texturePresets" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
+  </div>
+  <div class="garage-row">
+    <label>📁 Своё изображение:</label>
+    <div style="position:relative;overflow:hidden;display:inline-block;">
+      <button class="garage-btn primary">Выбрать файл</button>
+      <input type="file" id="stickerFileInput" accept="image/*"
+        style="position:absolute;left:0;top:0;opacity:0;width:100%;height:100%;cursor:pointer;" />
+    </div>
+  </div>
+</div>
+
+<div id="creditPanel">
+  🏟️ Drift Arena — ровная площадка &nbsp;|&nbsp; 🚗 <span id="creditText">BEEMWA 22 — © tonielpro520 · CC BY</span>
+</div>
+
+<div id="minimap">
+  <canvas id="minimapCanvas"></canvas>
+  <div id="minimap-label">MAP</div>
+</div>
+
+<div id="hud">
+  <div class="speed"><span id="speedDisplay">0</span> <small>км/ч</small></div>
+  <div class="coords" id="coordDisplay">📍 0.00 · 0.00 · 0.00</div>
+  <div class="players-count" id="playersCount">👤 Игроков: 1</div>
+  <div class="model-name" id="modelNameDisplay">🚗 BEEMWA 22</div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p id="loadStatus">Загрузка...</p>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ============================================================
+// 1. СЦЕНА, КАМЕРА, РЕНДЕРЕР
+// ============================================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 60, 160);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
+camera.position.set(0, 3, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.4;
+document.body.appendChild(renderer.domElement);
+
+// ============================================================
+// 2. СВЕТ
+// ============================================================
+const sun = new THREE.DirectionalLight(0xffeedd, 2.5);
+sun.position.set(30, 40, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.1;
+sun.shadow.camera.far = 120;
+sun.shadow.camera.left = -60;
+sun.shadow.camera.right = 60;
+sun.shadow.camera.top = 60;
+sun.shadow.camera.bottom = -60;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0x88ccff, 0.7);
+fill.position.set(-20, 10, -30);
+scene.add(fill);
+
+scene.add(new THREE.AmbientLight(0x88bbdd, 0.85));
+
+// ============================================================
+// 3. РОВНАЯ ПЛОЩАДКА ДЛЯ ДРИФТА (без города)
+// ============================================================
+const WORLD_SIZE = 180;
+const BOUNDARY = WORLD_SIZE / 2 - 3;
+
+// Асфальт
+const asphalt = new THREE.Mesh(
+  new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE),
+  new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.95, metalness: 0.0 })
+);
+asphalt.rotation.x = -Math.PI / 2;
+asphalt.position.y = -0.01;
+asphalt.receiveShadow = true;
+scene.add(asphalt);
+
+// Трава/газон за пределами (визуальная граница)
+const grass = new THREE.Mesh(
+  new THREE.PlaneGeometry(WORLD_SIZE * 3, WORLD_SIZE * 3),
+  new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 1 })
+);
+grass.rotation.x = -Math.PI / 2;
+grass.position.y = -0.05;
+grass.receiveShadow = true;
+scene.add(grass);
+
+// Сетка-разметка на асфальте
+const grid = new THREE.GridHelper(WORLD_SIZE, 36, 0xffffff, 0x555555);
+grid.material.opacity = 0.25;
+grid.material.transparent = true;
+grid.position.y = 0.005;
+scene.add(grid);
+
+// Бордюр по периметру
+const borderMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6 });
+const borderH = 0.6, borderW = 0.5;
+for (const [x, z, w, d] of [
+  [0,  BOUNDARY, WORLD_SIZE, borderW],
+  [0, -BOUNDARY, WORLD_SIZE, borderW],
+  [ BOUNDARY, 0, borderW, WORLD_SIZE],
+  [-BOUNDARY, 0, borderW, WORLD_SIZE],
+]) {
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, borderH, d), borderMat);
+  b.position.set(x, borderH / 2, z);
+  b.castShadow = true; b.receiveShadow = true;
+  scene.add(b);
+}
+
+// Ориентиры: несколько колец и конусов для ощущения масштаба
+const coneGeo = new THREE.ConeGeometry(0.35, 1, 12);
+const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6b35, roughness: 0.7 });
+for (let i = 0; i < 12; i++) {
+  const a = (i / 12) * Math.PI * 2;
+  const r = 25;
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+  cone.position.set(Math.cos(a) * r, 0.5, Math.sin(a) * r);
+  cone.castShadow = true;
+  scene.add(cone);
+}
+const ringGeo = new THREE.RingGeometry(8, 8.3, 64);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0xffcc00, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+const ring = new THREE.Mesh(ringGeo, ringMat);
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.01;
+scene.add(ring);
+
+// ============================================================
+// 4. ТЕКСТУРЫ ДЛЯ ГАРАЖА
+// ============================================================
+const textureUrls = [
+  { name: 'Абстракция', url: 'https://i.pinimg.com/originals/1c/f8/04/1cf80494042a9f7dc2a82de72029392b.jpg' },
+  { name: 'Градиент',   url: 'https://i.pinimg.com/originals/98/97/67/9897674cf44d00bc0f1988e8da12495f.jpg' },
+  { name: 'Мрамор',     url: 'https://img.freepik.com/premium-photo/abstract-texture-background_75922-352.jpg' },
+  { name: 'Карбон',     url: 'https://avatars.mds.yandex.net/i?id=fd180e6ee89adbc38a588e2b6c4f88d4d459086e-16505343-images-thumbs&n=13' },
+  { name: 'Кирпич',     url: 'https://img.freepik.com/free-photo/brick-wall-background-texture_1048-17430.jpg' }
+];
+const texturePresetsContainer = document.getElementById('texturePresets');
+textureUrls.forEach((t, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'texture-btn';
+  btn.dataset.index = i;
+  btn.textContent = t.name;
+  btn.style.cssText = 'background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:4px 10px;font-size:.65rem;color:#ccc;cursor:pointer;';
+  btn.addEventListener('click', () => applyTexture(i));
+  texturePresetsContainer.appendChild(btn);
+});
+
+// ============================================================
+// 5. МУЛЬТИПЛЕЕР (как в оригинале, с fallback)
+// ============================================================
+let multiplayer = null, isConnected = false, roomId = '', playerId = '';
+const otherPlayers = new Map();
+let P2PModule = null, p2pLoaded = false;
+
+(async () => {
+  try {
+    const m = await import('https://cdn.jsdelivr.net/npm/@p2play-js/p2p-game@0.2.0/dist/index.js');
+    P2PModule = m; p2pLoaded = true;
+    console.log('✅ P2P библиотека загружена');
+  } catch (e) {
+    console.warn('P2P библиотека недоступна — мультиплеер отключён');
+  }
+})();
+
+const mpPanel = document.getElementById('multiplayerPanel');
+const mpRoomInput = document.getElementById('mpRoomInput');
+const mpJoinBtn = document.getElementById('mpJoinBtn');
+const mpCreateBtn = document.getElementById('mpCreateBtn');
+const mpLeaveBtn = document.getElementById('mpLeaveBtn');
+const mpStatus = document.getElementById('mpStatus');
+const mpPlayers = document.getElementById('mpPlayers');
+
+document.getElementById('mpToggle').addEventListener('click', () => mpPanel.classList.toggle('open'));
+
+mpCreateBtn.addEventListener('click', async () => {
+  if (!p2pLoaded) return (mpStatus.textContent = '❌ Библиотека не загружена');
+  const id = 'room_' + Math.random().toString(36).substring(2, 8);
+  mpRoomInput.value = id;
+  await joinRoom(id);
+});
+mpJoinBtn.addEventListener('click', async () => {
+  const r = mpRoomInput.value.trim();
+  if (!r) return (mpStatus.textContent = '⚠️ Введите ID');
+  await joinRoom(r);
+});
+mpLeaveBtn.addEventListener('click', leaveRoom);
+
+async function joinRoom(room) {
+  if (!p2pLoaded) return;
+  try {
+    mpStatus.textContent = '⏳ Подключение...';
+    const { P2PGameLibrary, WebSocketSignaling } = P2PModule;
+    playerId = 'p_' + Math.random().toString(36).substring(2, 8);
+
+    // ⚠️ локальный сервер сигналинга. Поменяй на свой WS при деплое.
+    const signaling = new WebSocketSignaling(playerId, room, 'ws://localhost:8787');
+    multiplayer = new P2PGameLibrary({ maxPlayers: 8, conflictResolution: 'timestamp', signaling, updateRate: 30 });
+
+    multiplayer.on('peer-connected', (peer) => {
+      mpStatus.textContent = `✅ Комната ${room}`;
+      createOtherPlayer(peer);
+      updatePlayersCount();
+    });
+    multiplayer.on('peer-disconnected', (peer) => { removeOtherPlayer(peer); updatePlayersCount(); });
+    multiplayer.on('playerMove', (peer, data) => {
+      const o = otherPlayers.get(peer);
+      if (!o || !data.position) return;
+      o.targetPosition.set(data.position.x, data.position.y, data.position.z);
+      o.targetRotation = data.rotation || 0;
+    });
+
+    await multiplayer.start();
+    isConnected = true; roomId = room;
+    mpStatus.textContent = `✅ Комната ${room}`;
+    mpJoinBtn.style.display = 'none';
+    mpCreateBtn.style.display = 'none';
+    mpLeaveBtn.style.display = 'inline-block';
+    startSendingPosition();
+  } catch (e) {
+    console.error(e);
+    mpStatus.textContent = '❌ Ошибка подключения';
+    multiplayer = null; isConnected = false;
+  }
+}
+
+async function leaveRoom() {
+  if (multiplayer) await multiplayer.stop();
+  multiplayer = null; isConnected = false; roomId = '';
+  for (const id of [...otherPlayers.keys()]) removeOtherPlayer(id);
+  mpStatus.textContent = '👋 Отключено';
+  mpJoinBtn.style.display = 'inline-block';
+  mpCreateBtn.style.display = 'inline-block';
+  mpLeaveBtn.style.display = 'none';
+  updatePlayersCount();
+}
+
+function createOtherPlayer(peer) {
+  if (!loadedModels[currentModelId]) return;
+  const clone = loadedModels[currentModelId].clone();
+  clone.visible = true;
+  scene.add(clone);
+  otherPlayers.set(peer, {
+    car: clone,
+    targetPosition: new THREE.Vector3(0, 0, 0),
+    targetRotation: 0,
+  });
+}
+function removeOtherPlayer(peer) {
+  const d = otherPlayers.get(peer);
+  if (d) { scene.remove(d.car); otherPlayers.delete(peer); }
+}
+function updatePlayersCount() {
+  const n = otherPlayers.size + 1;
+  document.getElementById('playersCount').textContent = `👤 Игроков: ${n}`;
+  mpPlayers.textContent = `👥 В комнате: ${n}`;
+}
+let positionSender = null;
+function startSendingPosition() {
+  if (positionSender) clearInterval(positionSender);
+  positionSender = setInterval(() => {
+    if (!isConnected || !multiplayer || !currentCar) return;
+    const p = currentCar.position;
+    multiplayer.broadcastMove('playerMove', {
+      position: { x: p.x, y: p.y, z: p.z },
+      rotation: carState.rotation
+    });
+  }, 1000 / 30);
+}
+
+// ============================================================
+// 6. СПИСОК МАШИН (все .glb лежат рядом с HTML)
+// ============================================================
+const modelsList = [
+  { id:'bmw',        name:'BEEMWA 22',        emoji:'🚗', file:'bmw2002.glb',                       rotation:0,             locked:false, isFast:false,
+    credit:'"1968 BMW 2002" by tonielpro520 · CC BY' },
+  { id:'bmw30',      name:'BEEMWA 30',        emoji:'🚗', file:'BEEMWAPP3.glb',                     rotation:Math.PI/2,     locked:false, isFast:false,
+    credit:'"BMW E30 1985" by ROH3D · CC BY' },
+  { id:'nissan',     name:'Neasun Loral 2rbo',emoji:'🚘', file:'nissan_laurel.glb',                 rotation:Math.PI/2,     locked:false, isFast:false,
+    credit:'"Nissan Laurel C31 Turbo 85" by own.guest · CC BY' },
+  { id:'mercedes',   name:'Tantoya Korova',   emoji:'🚙', file:'gelik.glb',                         rotation:0,             locked:false, isFast:false,
+    credit:'"Toyota Corola" by danieljorge435 · CC BY' },
+  { id:'toyota',     name:'Tantoya Parmezan', emoji:'🚗', file:'toyota_tezzo.glb',                  rotation:-Math.PI/2,    locked:false, isFast:false,
+    credit:'"Tozzo 98" by Daniel Zhabotinsky · CC BY' },
+  { id:'pagani',     name:'Poganka Sport',    emoji:'🏎️', file:'pagani1.glb',                       rotation:0,             locked:false, isFast:true,
+    credit:'"Pagani Zonda Cinque" by Ajay Gawde · CC BY' },
+  { id:'tank',       name:'TTTank',           emoji:'🎖️', file:'low_poly_tank.glb',                 rotation:Math.PI/2,     locked:true,  isTank:true,
+    credit:'"Low Poly Tank" by Kolos Studios · CC BY' },
+  { id:'cybertruck', name:'Teelsa Hypertrick',emoji:'🚛', file:'low_poly_tesla_cybertruck.glb',     rotation:0,             locked:false, isCybertruck:true,
+    credit:'Free Standard' },
+  { id:'tiramisu',   name:'Tiramisu SRM',     emoji:'🍰', file:'crumbelinas_tira-missile_early_look.glb', rotation:0,       locked:true,  isFast:false,
+    credit:'"Crumbelina Tira-Missile" by CrystalCandySTK · CC BY' }
+];
+
+const loadedModels = {};
+const loader = new GLTFLoader();
+const loadingDiv = document.getElementById('loading');
+const loadStatus = document.getElementById('loadStatus');
+
+let currentCar = null;
+let carLoaded = false;
+let currentModelId = 'bmw';
+let originalMaterials = new Map();
+
+const carState = {
+  position: new THREE.Vector3(0, 0, 0),
+  velocity: new THREE.Vector3(0, 0, 0),
+  rotation: 0
+};
+
+// ============================================================
+// 7. ЗАГРУЗКА МОДЕЛЕЙ (единый масштаб + посадка на землю)
+// ============================================================
+function loadModel(modelId, filePath) {
+  return new Promise((resolve, reject) => {
+    const info = modelsList.find(m => m.id === modelId);
+    loadStatus.textContent = `Загрузка ${info.emoji} ${info.name}...`;
+    loader.load(filePath, (gltf) => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      // Единый целевой габарит по длине
+      const targetSize = info.isCybertruck ? 2.5 : 1.6;
+      if (maxDim > 0.01) {
+        const s = targetSize / maxDim;
+        model.scale.setScalar(s);
+      }
+
+      // Центрируем по X/Z и ставим низ на землю
+      const box2 = new THREE.Box3().setFromObject(model);
+      const center = box2.getCenter(new THREE.Vector3());
+      model.position.x -= center.x;
+      model.position.z -= center.z;
+      model.position.y -= box2.min.y;
+
+      model.rotation.y = info.rotation || 0;
+
+      model.traverse(c => {
+        if (c.isMesh) {
+          c.castShadow = true;
+          c.receiveShadow = true;
+          if (c.material) {
+            c.material.roughness = 0.35;
+            c.material.metalness = 0.45;
+          }
+        }
+      });
+
+      scene.add(model);
+      resolve(model);
+    }, (xhr) => {
+      if (xhr.total) {
+        const p = Math.round((xhr.loaded / xhr.total) * 100);
+        loadStatus.textContent = `Загрузка... ${p}%`;
+      }
+    }, (err) => {
+      console.error('Ошибка загрузки:', filePath, err);
+      reject(err);
+    });
+  });
+}
+
+// ============================================================
+// 8. ИНИЦИАЛИЗАЦИЯ
+// ============================================================
+async function init() {
+  try {
+    // Сначала грузим доступные (не locked), чтобы быстрее стартовать
+    const unlocked = modelsList.filter(m => !m.locked);
+    for (const m of unlocked) {
+      try {
+        const obj = await loadModel(m.id, m.file);
+        loadedModels[m.id] = obj;
+        obj.visible = false;
+      } catch (e) { console.warn(`⚠️ ${m.name} не загружен`); }
+    }
+    // Потом locked — в фоне
+    for (const m of modelsList.filter(m => m.locked)) {
+      try {
+        const obj = await loadModel(m.id, m.file);
+        loadedModels[m.id] = obj;
+        obj.visible = false;
+      } catch (e) { console.warn(`⚠️ ${m.name} не загружен`); }
+    }
+
+    const first = modelsList[0];
+    if (loadedModels[first.id]) {
+      currentCar = loadedModels[first.id];
+      currentCar.visible = true;
+      currentModelId = first.id;
+      carLoaded = true;
+      document.getElementById('modelNameDisplay').textContent = `${first.emoji} ${first.name}`;
+      document.getElementById('creditText').textContent = first.credit;
+    } else {
+      // Ни одна не загрузилась — покажем заглушку-куб, чтобы сцена не была пустой
+      const dummy = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.8, 3),
+        new THREE.MeshStandardMaterial({ color: 0xff6b35, roughness: 0.4 })
+      );
+      dummy.position.y = 0.4;
+      dummy.castShadow = true;
+      scene.add(dummy);
+      currentCar = dummy;
+      carLoaded = true;
+      document.getElementById('modelNameDisplay').textContent = '⚠️ Модели не найдены — заглушка';
+    }
+
+    loadingDiv.style.display = 'none';
+    renderCarList();
+    console.log('✅ Инициализация завершена');
+  } catch (e) {
+    console.error(e);
+    loadingDiv.innerHTML = '<p style="color:#ff6b35;">❌ Ошибка загрузки. Проверьте .glb рядом с HTML.</p>';
+  }
+}
+init();
+
+// ============================================================
+// 9. СПИСОК МАШИН В МЕНЮ
+// ============================================================
+function renderCarList() {
+  const c = document.getElementById('carList');
+  c.innerHTML = '';
+  modelsList.forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'car-btn' + (m.id === currentModelId ? ' active' : '');
+    btn.dataset.car = m.id;
+    let label = `${m.emoji} ${m.name}`;
+    if (m.locked) label += ' <span class="locked">🔒</span>';
+    btn.innerHTML = label + `<span class="credit">${m.credit}</span>`;
+    btn.addEventListener('click', () => selectCar(m.id));
+    c.appendChild(btn);
+  });
+}
+
+function selectCar(id) {
+  const m = modelsList.find(x => x.id === id);
+  if (!m) return;
+  if (m.locked) {
+    const pm = document.getElementById('promoMessage');
+    pm.textContent = '❌ Машина заблокирована. Введите промокод.';
+    pm.className = 'promo-message error';
+    return;
+  }
+  if (!loadedModels[id]) {
+    const pm = document.getElementById('promoMessage');
+    pm.textContent = '⚠️ Модель не загружена (нет .glb?)';
+    pm.className = 'promo-message error';
+    return;
+  }
+  if (currentCar) currentCar.visible = false;
+  currentCar = loadedModels[id];
+  currentCar.visible = true;
+  currentModelId = id;
+
+  document.getElementById('modelNameDisplay').textContent = `${m.emoji} ${m.name}`;
+  document.getElementById('creditText').textContent = m.credit;
+
+  originalMaterials.clear();
+  carState.position.set(0, 0, 0);
+  carState.velocity.set(0, 0, 0);
+  carState.rotation = 0;
+  currentCar.position.set(0, 0, 0);
+  currentCar.rotation.set(0, m.rotation || 0, 0);
+
+  document.querySelectorAll('.car-btn').forEach(b => b.classList.toggle('active', b.dataset.car === id));
+  closeMenu();
+}
+
+// ============================================================
+// 10. МЕНЮ
+// ============================================================
+const carSelector = document.getElementById('carSelector');
+const menuToggle = document.getElementById('menuToggle');
+function openMenu() { carSelector.classList.add('open'); renderCarList(); }
+function closeMenu() { carSelector.classList.remove('open'); }
+menuToggle.addEventListener('click', () => carSelector.classList.contains('open') ? closeMenu() : openMenu());
+document.getElementById('closeMenu').addEventListener('click', closeMenu);
+document.addEventListener('click', e => {
+  if (carSelector.classList.contains('open') && !carSelector.contains(e.target) && e.target !== menuToggle) closeMenu();
+});
+
+// ============================================================
+// 11. ПРОМОКОДЫ
+// ============================================================
+const promoInput = document.getElementById('promoInput');
+const promoBtn = document.getElementById('promoBtn');
+const promoMessage = document.getElementById('promoMessage');
+
+promoBtn.addEventListener('click', () => {
+  const code = promoInput.value.trim().toLowerCase();
+  if (!code) { promoMessage.textContent = '⚠️ Введите промокод'; promoMessage.className = 'promo-message error'; return; }
+
+  let ok = false;
+  if (code === 'thetank' || code === 'танк') {
+    const t = modelsList.find(m => m.id === 'tank');
+    if (t && t.locked) { t.locked = false; ok = true; promoMessage.textContent = '✅ TTTank разблокирован!'; promoMessage.className = 'promo-message success'; }
+    else { promoMessage.textContent = '⚠️ Уже разблокирован'; promoMessage.className = 'promo-message error'; }
+  } else if (code === 'miladr10' || code === 'мила') {
+    const t = modelsList.find(m => m.id === 'tiramisu');
+    if (t && t.locked) { t.locked = false; ok = true; promoMessage.textContent = '✅ Tiramisu SRM разблокирована!'; promoMessage.className = 'promo-message success'; }
+    else { promoMessage.textContent = '⚠️ Уже разблокирована'; promoMessage.className = 'promo-message error'; }
+  } else {
+    promoMessage.textContent = '❌ Неверный промокод';
+    promoMessage.className = 'promo-message error';
+  }
+  if (ok) { renderCarList(); promoInput.value = ''; }
+});
+
+// ============================================================
+// 12. ГАРАЖ
+// ============================================================
+const garagePanel = document.getElementById('garagePanel');
+document.getElementById('garageToggle').addEventListener('click', () => {
+  garagePanel.style.display = garagePanel.style.display === 'flex' ? 'none' : 'flex';
+});
+document.getElementById('closeGarage').addEventListener('click', () => garagePanel.style.display = 'none');
+
+function saveOriginalMaterials(model) {
+  if (!model) return;
+  model.traverse(c => {
+    if (c.isMesh && c.material && !originalMaterials.has(c.uuid)) {
+      originalMaterials.set(c.uuid, c.material.clone());
+    }
+  });
+}
+
+document.getElementById('applyColorBtn').addEventListener('click', () => {
+  if (!currentCar) return;
+  const col = new THREE.Color(document.getElementById('colorPicker').value);
+  currentCar.traverse(c => {
+    if (c.isMesh && c.material) {
+      if (!originalMaterials.has(c.uuid)) originalMaterials.set(c.uuid, c.material.clone());
+      const mats = Array.isArray(c.material) ? c.material : [c.material];
+      mats.forEach(m => { m.color.copy(col); m.emissive = new THREE.Color(0x000000); });
+    }
+  });
+});
+
+document.getElementById('resetColorBtn').addEventListener('click', () => {
+  if (!currentCar) return;
+  currentCar.traverse(c => {
+    if (c.isMesh && c.material && originalMaterials.has(c.uuid)) {
+      const orig = originalMaterials.get(c.uuid);
+      const mats = Array.isArray(c.material) ? c.material : [c.material];
+      const origs = Array.isArray(orig) ? orig : [orig];
+      mats.forEach((m, i) => {
+        if (origs[i]) { m.color.copy(origs[i].color); m.emissive.copy(origs[i].emissive); m.map = origs[i].map; }
+      });
+      c.material.needsUpdate = true;
+    }
+  });
+});
+
+document.getElementById('rotLeft').addEventListener('click', () => { if (currentCar) currentCar.rotation.y -= 0.2; });
+document.getElementById('rotRight').addEventListener('click', () => { if (currentCar) currentCar.rotation.y += 0.2; });
+document.getElementById('rotReset').addEventListener('click', () => {
+  if (!currentCar) return;
+  const m = modelsList.find(x => x.id === currentModelId);
+  currentCar.rotation.y = m ? (m.rotation || 0) : 0;
+});
+
+function applyTexture(index) {
+  if (!currentCar) return;
+  const t = textureUrls[index];
+  if (!t) return;
+  new THREE.TextureLoader().load(t.url, tex => {
+    currentCar.traverse(c => {
+      if (c.isMesh && c.material) {
+        if (!originalMaterials.has(c.uuid)) originalMaterials.set(c.uuid, c.material.clone());
+        const mats = Array.isArray(c.material) ? c.material : [c.material];
+        mats.forEach(m => { m.map = tex; m.needsUpdate = true; });
+      }
+    });
+  });
+}
+
+document.getElementById('stickerFileInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f || !currentCar) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const tex = new THREE.Texture(img);
+      tex.needsUpdate = true;
+      currentCar.traverse(c => {
+        if (c.isMesh && c.material) {
+          if (!originalMaterials.has(c.uuid)) originalMaterials.set(c.uuid, c.material.clone());
+          const mats = Array.isArray(c.material) ? c.material : [c.material];
+          mats.forEach(m => { m.map = tex; m.needsUpdate = true; });
+        }
+      });
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(f);
+});
+
+// ============================================================
+// 13. ВВОД
+// ============================================================
+const keys = { w:false, s:false, a:false, d:false, up:false, down:false, left:false, right:false, space:false };
+function setKey(e, down) {
+  const k = e.key;
+  const map = {
+    'w':'w','W':'w','s':'s','S':'s','a':'a','A':'a','d':'d','D':'d',
+    'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ':'space'
+  };
+  if (map[k]) {
+    keys[map[k]] = down;
+    if (k === ' ') e.preventDefault();
+  }
+}
+document.addEventListener('keydown', e => setKey(e, true));
+document.addEventListener('keyup',   e => setKey(e, false));
+
+// ============================================================
+// 14. ДЫМ (из задней части корпуса, обращённой к камере)
+// ============================================================
+const SMOKE_MAX = 160;
+const smokeGeo = new THREE.BufferGeometry();
+const smokePositions = new Float32Array(SMOKE_MAX * 3);
+const smokeAlphas = new Float32Array(SMOKE_MAX);
+const smokeSizes = new Float32Array(SMOKE_MAX);
+const smokeLife = new Float32Array(SMOKE_MAX);
+const smokeVel = new Float32Array(SMOKE_MAX * 3);
+let smokeCursor = 0;
+for (let i = 0; i < SMOKE_MAX; i++) { smokePositions[i*3+1] = -9999; }
+
+smokeGeo.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3));
+smokeGeo.setAttribute('alpha', new THREE.BufferAttribute(smokeAlphas, 1));
+smokeGeo.setAttribute('size', new THREE.BufferAttribute(smokeSizes, 1));
+
+function makeSmokeTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0, 'rgba(255,255,255,0.9)');
+  gr.addColorStop(0.5, 'rgba(230,230,230,0.45)');
+  gr.addColorStop(1, 'rgba(200,200,200,0)');
+  g.fillStyle = gr; g.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+}
+
+const smokeMat = new THREE.ShaderMaterial({
+  uniforms: { uTex: { value: makeSmokeTexture() } },
+  vertexShader: `
+    attribute float alpha; attribute float size; varying float vAlpha;
+    void main(){ vAlpha = alpha; vec4 mv = modelViewMatrix * vec4(position,1.0);
+      gl_PointSize = size * (300.0 / -mv.z); gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `
+    uniform sampler2D uTex; varying float vAlpha;
+    void main(){ vec4 t = texture2D(uTex, gl_PointCoord); gl_FragColor = vec4(t.rgb, t.a * vAlpha); }`,
+  transparent: true, depthWrite: false
+});
+const smokePoints = new THREE.Points(smokeGeo, smokeMat);
+smokePoints.frustumCulled = false;
+scene.add(smokePoints);
+
+function spawnSmoke(pos, vel, intensity) {
+  const i = smokeCursor;
+  smokeCursor = (smokeCursor + 1) % SMOKE_MAX;
+  smokePositions[i*3+0] = pos.x + (Math.random()-0.5)*0.35;
+  smokePositions[i*3+1] = pos.y + Math.random()*0.2;
+  smokePositions[i*3+2] = pos.z + (Math.random()-0.5)*0.35;
+  smokeVel[i*3+0] = vel.x * 0.15 + (Math.random()-0.5)*0.02;
+  smokeVel[i*3+1] = 0.015 + Math.random()*0.02;
+  smokeVel[i*3+2] = vel.z * 0.15 + (Math.random()-0.5)*0.02;
+  smokeLife[i] = 0.7 + Math.random()*0.7;
+  smokeAlphas[i] = Math.min(0.85, 0.3 + intensity);
+  smokeSizes[i] = 0.4 + Math.random()*0.5;
+}
+
+function updateSmoke(driftIntensity, launchIntensity) {
+  if (!currentCar) return;
+
+  // Эмиттер — задняя часть модели, обращённая к камере (локальный +Z)
+  const back = new THREE.Vector3(0, 0.35, 0.95).applyEuler(currentCar.rotation).add(currentCar.position);
+
+  const total = driftIntensity + launchIntensity;
+  if (total > 0.05) {
+    const count = Math.min(6, Math.ceil(total * 10));
+    for (let k = 0; k < count; k++) spawnSmoke(back, carState.velocity, total);
+  }
+
+  for (let i = 0; i < SMOKE_MAX; i++) {
+    if (smokeLife[i] > 0) {
+      smokeLife[i] -= 0.016;
+      smokePositions[i*3+0] += smokeVel[i*3+0];
+      smokePositions[i*3+1] += smokeVel[i*3+1];
+      smokePositions[i*3+2] += smokeVel[i*3+2];
+      smokeVel[i*3+1] += 0.0004;
+      smokeSizes[i] += 0.012;
+      smokeAlphas[i] *= 0.975;
+      if (smokeLife[i] <= 0) { smokeAlphas[i] = 0; smokePositions[i*3+1] = -9999; }
+    }
+  }
+  smokeGeo.attributes.position.needsUpdate = true;
+  smokeGeo.attributes.alpha.needsUpdate = true;
+  smokeGeo.attributes.size.needsUpdate = true;
+}
+
+// ============================================================
+// 15. ФИЗИКА: ДРИФТ
+// ============================================================
+const ENGINE_FORCE = 0.020;
+const REVERSE_FORCE = 0.012;
+const MAX_SPEED = 0.52;
+const SLOW_MAX_SPEED = 0.40;
+const TANK_MAX_SPEED = 0.23;
+const TURN_SPEED = 0.032;
+const FRICTION_LONG = 0.995;
+
+const GRIP_FRONT = 0.92;
+const GRIP_REAR = 0.55;
+const GRIP_REAR_HANDBRAKE = 0.15;
+const DRIFT_STIFFNESS = 0.14;
+const GRIP_THRESHOLD = 0.85;
+const DRIFT_YAW_BOOST = 0.55;
+
+let gripRearCurrent = GRIP_REAR;
+let prevThrottle = 0;
+let launchTimer = 0;
+
+function updateCar() {
+  if (!currentCar || !carLoaded) return;
+  const info = modelsList.find(m => m.id === currentModelId) || {};
+  const isTank = !!info.isTank;
+  const isFast = !!info.isFast;
+
+  let throttle = 0, steerInput = 0;
+  if (keys.w || keys.up)   throttle = -1;
+  if (keys.s || keys.down) throttle =  1;
+  if (keys.a || keys.left) steerInput =  1;
+  if (keys.d || keys.right)steerInput = -1;
+
+  const handbrake = keys.space;
+  const targetRear = handbrake ? GRIP_REAR_HANDBRAKE : GRIP_REAR;
+  gripRearCurrent += (targetRear - gripRearCurrent) * 0.18;
+
+  // Оси корпуса
+  const forward = new THREE.Vector3(-Math.sin(carState.rotation), 0, -Math.cos(carState.rotation));
+  const right   = new THREE.Vector3( Math.cos(carState.rotation), 0, -Math.sin(carState.rotation));
+
+  let vF = carState.velocity.dot(forward);
+  let vL = carState.velocity.dot(right);
+
+  // Тяга/торможение
+  if (throttle < 0) vF -= ENGINE_FORCE;
+  if (throttle > 0) vF += REVERSE_FORCE;
+
+  // Резкий старт — для дыма
+  if (throttle < 0 && prevThrottle >= 0 && Math.abs(vF) < 0.05) {
+    launchTimer = 0.6;
+  }
+  prevThrottle = throttle;
+
+  // Поворот корпуса
+  const speedAbs = Math.abs(vF);
+  if (speedAbs > 0.004) {
+    const steerFactor = Math.min(speedAbs / 0.12, 1);
+    carState.rotation += steerInput * TURN_SPEED * steerFactor;
+    if (Math.abs(vL) > 0.02 && !isTank) {
+      carState.rotation += steerInput * TURN_SPEED * DRIFT_YAW_BOOST * Math.min(Math.abs(vL) * 8, 1);
+    }
+  }
+
+  // Сцепление (боковая скорость гасится ограниченно)
+  const gripAxis = handbrake ? gripRearCurrent : (GRIP_FRONT * 0.5 + gripRearCurrent * 0.5);
+  let latCorr = -vL * DRIFT_STIFFNESS;
+  const maxGrip = GRIP_THRESHOLD * gripAxis;
+  latCorr = Math.max(-maxGrip, Math.min(maxGrip, latCorr));
+  vL += latCorr;
+
+  vF *= FRICTION_LONG;
+
+  // Обратно в вектор
+  carState.velocity.copy(forward).multiplyScalar(vF).add(right.clone().multiplyScalar(vL));
+
+  // Ограничение скорости
+  const spd = carState.velocity.length();
+  let maxS = isTank ? TANK_MAX_SPEED : MAX_SPEED;
+  if (!isFast && !isTank) maxS = SLOW_MAX_SPEED;
+  if (spd > maxS) carState.velocity.multiplyScalar(maxS / spd);
+
+  if (carState.velocity.length() < 0.001) carState.velocity.set(0, 0, 0);
+  carState.position.add(carState.velocity);
+
+  // Границы площадки
+  if (Math.abs(carState.position.x) > BOUNDARY) {
+    carState.position.x = Math.sign(carState.position.x) * BOUNDARY;
+    carState.velocity.x = 0;
+  }
+  if (Math.abs(carState.position.z) > BOUNDARY) {
+    carState.position.z = Math.sign(carState.position.z) * BOUNDARY;
+    carState.velocity.z = 0;
+  }
+
+  // Визуал
+  currentCar.position.copy(carState.position);
+  currentCar.position.y = 0;
+  const baseRot = info.rotation || 0;
+  const driftYawVisual = -vL * 0.9;
+  currentCar.rotation.y = carState.rotation + baseRot + driftYawVisual * 0.15;
+  currentCar.rotation.z = -steerInput * Math.min(speedAbs * 0.8, 0.06);
+
+  // HUD
+  document.getElementById('speedDisplay').textContent = Math.round(carState.velocity.length() * 150);
+  document.getElementById('coordDisplay').textContent =
+    `📍 ${carState.position.x.toFixed(2)} · ${carState.position.y.toFixed(2)} · ${carState.position.z.toFixed(2)}`;
+
+  // Дым
+  const driftIntensity = Math.max(0, Math.abs(vL) - 0.015) * 6;
+  if (launchTimer > 0) launchTimer -= 0.016;
+  const launchIntensity = launchTimer > 0 ? 0.5 : 0;
+  updateSmoke(driftIntensity, launchIntensity);
+}
+
+// ============================================================
+// 16. КАМЕРА
+// ============================================================
+const CAM_MIN = 4.5, CAM_MAX = 7.0, CAM_H = 3.0, CAM_SMOOTH = 0.10;
+let camTarget = new THREE.Vector3(0, 0.5, 0);
+
+function updateCamera() {
+  if (!currentCar || !carLoaded) return;
+  const info = modelsList.find(m => m.id === currentModelId) || {};
+  const speed = carState.velocity.length();
+  const f = Math.min(speed / MAX_SPEED, 1);
+  const dist = CAM_MIN + (CAM_MAX - CAM_MIN) * f * 0.6;
+  const h = info.isCybertruck ? 4.2 : CAM_H;
+
+  const a = carState.rotation;
+  const desired = new THREE.Vector3(
+    currentCar.position.x - Math.sin(a) * dist,
+    h,
+    currentCar.position.z - Math.cos(a) * dist
+  );
+  camera.position.lerp(desired, CAM_SMOOTH);
+
+  const look = currentCar.position.clone();
+  look.y += info.isCybertruck ? 1.0 : 0.5;
+  camTarget.lerp(look, CAM_SMOOTH);
+  camera.lookAt(camTarget);
+}
+
+// ============================================================
+// 17. NPC (опционально — убрал, чтобы не мешали дрифту)
+// ============================================================
+function updateOtherPlayers() {
+  for (const d of otherPlayers.values()) {
+    d.car.position.lerp(d.targetPosition, 0.1);
+    d.car.rotation.y += (d.targetRotation - d.car.rotation.y) * 0.1;
+  }
+}
+
+// ============================================================
+// 18. МИНИКАРТА (упрощённая — только игрок и площадка)
+// ============================================================
+const minimapCanvas = document.getElementById('minimapCanvas');
+const mmCtx = minimapCanvas.getContext('2d');
+function resizeMinimap() {
+  const size = document.getElementById('minimap').getBoundingClientRect().width || 180;
+  minimapCanvas.width = size;
+  minimapCanvas.height = size;
+}
+resizeMinimap();
+addEventListener('resize', resizeMinimap);
+
+function updateMinimap() {
+  const W = minimapCanvas.width, H = minimapCanvas.height;
+  mmCtx.clearRect(0, 0, W, H);
+  mmCtx.fillStyle = 'rgba(20,25,35,0.85)';
+  mmCtx.fillRect(0, 0, W, H);
+
+  const toX = x => (x + BOUNDARY) / (BOUNDARY * 2) * W;
+  const toY = z => (z + BOUNDARY) / (BOUNDARY * 2) * H;
+
+  // Граница площадки
+  mmCtx.strokeStyle = 'rgba(255,255,255,0.35)';
+  mmCtx.lineWidth = 1.5;
+  mmCtx.strokeRect(toX(-BOUNDARY), toY(-BOUNDARY), toX(BOUNDARY)-toX(-BOUNDARY), toY(BOUNDARY)-toY(-BOUNDARY));
+
+  // Кольцо-ориентир
+  mmCtx.strokeStyle = 'rgba(255,204,0,0.5)';
+  mmCtx.beginPath();
+  mmCtx.arc(toX(0), toY(0), (8 / (BOUNDARY*2)) * W, 0, Math.PI*2);
+  mmCtx.stroke();
+
+  // Игрок
+  if (currentCar && carLoaded) {
+    const px = toX(currentCar.position.x), py = toY(currentCar.position.z);
+    mmCtx.fillStyle = '#ff6b35';
+    mmCtx.shadowColor = 'rgba(255,107,53,0.6)';
+    mmCtx.shadowBlur = 8;
+    mmCtx.beginPath(); mmCtx.arc(px, py, 3, 0, Math.PI*2); mmCtx.fill();
+    mmCtx.shadowBlur = 0;
+    const a = carState.rotation;
+    mmCtx.strokeStyle = '#ff6b35'; mmCtx.lineWidth = 1.5;
+    mmCtx.beginPath(); mmCtx.moveTo(px, py);
+    mmCtx.lineTo(px + Math.sin(a) * 7, py + Math.cos(a) * 7); mmCtx.stroke();
+  }
+
+  // Другие игроки
+  for (const d of otherPlayers.values()) {
+    mmCtx.fillStyle = '#44aaff';
+    mmCtx.beginPath();
+    mmCtx.arc(toX(d.car.position.x), toY(d.car.position.z), 2.5, 0, Math.PI*2);
+    mmCtx.fill();
+  }
+}
+
+// ============================================================
+// 19. ЦИКЛ
+// ============================================================
+function animate() {
+  requestAnimationFrame(animate);
+  updateCar();
+  updateOtherPlayers();
+  updateCamera();
+  updateMinimap();
+  renderer.render(scene, camera);
+}
+animate();
+
+console.log('🏟️ Drift Arena запущена');
+console.log('📖 Управление: W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник');
+console.log('💨 Дым: при резком старте и при заносе/ручнике');
+</script>
+</body>
+</html>
