@@ -266,10 +266,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ============================================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB, 80, 220);
+scene.fog = new THREE.Fog(0x87CEEB, 200, 550);
 
-const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
-camera.position.set(0, 6, 10);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 4000);
+camera.position.set(0, 12, 18);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
@@ -284,35 +284,35 @@ document.body.appendChild(renderer.domElement);
 // 2. СВЕТ
 // ============================================================
 const sun = new THREE.DirectionalLight(0xffeedd, 2.5);
-sun.position.set(40, 50, 25);
+sun.position.set(100, 120, 60);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.near = 0.1;
-sun.shadow.camera.far = 160;
-sun.shadow.camera.left = -80;
-sun.shadow.camera.right = 80;
-sun.shadow.camera.top = 80;
-sun.shadow.camera.bottom = -80;
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 500;
+sun.shadow.camera.left = -200;
+sun.shadow.camera.right = 200;
+sun.shadow.camera.top = 200;
+sun.shadow.camera.bottom = -200;
 scene.add(sun);
 
 const fill = new THREE.DirectionalLight(0x88ccff, 0.7);
-fill.position.set(-20, 10, -30);
+fill.position.set(-60, 40, -80);
 scene.add(fill);
 
 scene.add(new THREE.AmbientLight(0x88bbdd, 0.85));
 
 // ============================================================
-// 3. РОВНАЯ ПЛОЩАДКА ДЛЯ ДРИФТА (без города)
+// 3. РОВНАЯ ПЛОЩАДКА ДЛЯ ДРИФТА
 // ============================================================
-const WORLD_SIZE = 180;
-const BOUNDARY = WORLD_SIZE / 2 - 3;
+const WORLD_SIZE = 400;
+const BOUNDARY = WORLD_SIZE / 2 - 8;
 
 const asphalt = new THREE.Mesh(
   new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE),
   new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.95, metalness: 0.0 })
 );
 asphalt.rotation.x = -Math.PI / 2;
-asphalt.position.y = -0.01;
+asphalt.position.y = -0.02;
 asphalt.receiveShadow = true;
 scene.add(asphalt);
 
@@ -321,18 +321,18 @@ const grass = new THREE.Mesh(
   new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 1 })
 );
 grass.rotation.x = -Math.PI / 2;
-grass.position.y = -0.05;
+grass.position.y = -0.10;
 grass.receiveShadow = true;
 scene.add(grass);
 
-const grid = new THREE.GridHelper(WORLD_SIZE, 36, 0xffffff, 0x555555);
+const grid = new THREE.GridHelper(WORLD_SIZE, 40, 0xffffff, 0x555555);
 grid.material.opacity = 0.25;
 grid.material.transparent = true;
-grid.position.y = 0.005;
+grid.position.y = 0.01;
 scene.add(grid);
 
 const borderMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6 });
-const borderH = 0.6, borderW = 0.5;
+const borderH = 1.5, borderW = 1.2;
 for (const [x, z, w, d] of [
   [0,  BOUNDARY, WORLD_SIZE, borderW],
   [0, -BOUNDARY, WORLD_SIZE, borderW],
@@ -345,21 +345,22 @@ for (const [x, z, w, d] of [
   scene.add(b);
 }
 
-const coneGeo = new THREE.ConeGeometry(0.5, 1.4, 12);
+const coneGeo = new THREE.ConeGeometry(1.25, 3.5, 12);
 const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6b35, roughness: 0.7 });
 for (let i = 0; i < 12; i++) {
   const a = (i / 12) * Math.PI * 2;
-  const r = 28;
+  const r = 70;
   const cone = new THREE.Mesh(coneGeo, coneMat);
-  cone.position.set(Math.cos(a) * r, 0.7, Math.sin(a) * r);
+  cone.position.set(Math.cos(a) * r, 1.75, Math.sin(a) * r);
   cone.castShadow = true;
   scene.add(cone);
 }
-const ringGeo = new THREE.RingGeometry(9, 9.4, 64);
+
+const ringGeo = new THREE.RingGeometry(22.5, 23.5, 64);
 const ringMat = new THREE.MeshBasicMaterial({ color: 0xffcc00, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
 const ring = new THREE.Mesh(ringGeo, ringMat);
 ring.rotation.x = -Math.PI / 2;
-ring.position.y = 0.01;
+ring.position.y = 0.02;
 scene.add(ring);
 
 // ============================================================
@@ -384,7 +385,7 @@ textureUrls.forEach((t, i) => {
 });
 
 // ============================================================
-// 5. МУЛЬТИПЛЕЕР (как в оригинале, с fallback)
+// 5. МУЛЬТИПЛЕЕР
 // ============================================================
 let multiplayer = null, isConnected = false, roomId = '', playerId = '';
 const otherPlayers = new Map();
@@ -505,7 +506,7 @@ function startSendingPosition() {
 }
 
 // ============================================================
-// 6. СПИСОК МАШИН (все .glb лежат рядом с HTML)
+// 6. СПИСОК МАШИН
 // ============================================================
 const modelsList = [
   { id:'bmw',        name:'BEEMWA 22',        emoji:'🚗', file:'bmw2002.glb',                       rotation:0,             locked:false, isFast:false,
@@ -545,7 +546,7 @@ const carState = {
 };
 
 // ============================================================
-// 7. ЗАГРУЗКА МОДЕЛЕЙ (x2 масштаб, посадка на землю)
+// 7. ЗАГРУЗКА МОДЕЛЕЙ (x5 от оригинала)
 // ============================================================
 function loadModel(modelId, filePath) {
   return new Promise((resolve, reject) => {
@@ -557,8 +558,7 @@ function loadModel(modelId, filePath) {
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z);
 
-      // === x2: было 1.6 / 2.5, стало 3.2 / 5.0 ===
-      const targetSize = info.isCybertruck ? 5.0 : 3.2;
+      const targetSize = info.isCybertruck ? 12.5 : 8.0;
       if (maxDim > 0.01) {
         const s = targetSize / maxDim;
         model.scale.setScalar(s);
@@ -628,10 +628,10 @@ async function init() {
       document.getElementById('creditText').textContent = first.credit;
     } else {
       const dummy = new THREE.Mesh(
-        new THREE.BoxGeometry(3.2, 1.6, 6),
+        new THREE.BoxGeometry(8, 4, 15),
         new THREE.MeshStandardMaterial({ color: 0xff6b35, roughness: 0.4 })
       );
-      dummy.position.y = 0.8;
+      dummy.position.y = 2;
       dummy.castShadow = true;
       scene.add(dummy);
       currentCar = dummy;
@@ -850,7 +850,7 @@ document.addEventListener('keydown', e => setKey(e, true));
 document.addEventListener('keyup',   e => setKey(e, false));
 
 // ============================================================
-// 14. ДЫМ (задняя часть корпуса, к камере)
+// 14. ДЫМ
 // ============================================================
 const SMOKE_MAX = 160;
 const smokeGeo = new THREE.BufferGeometry();
@@ -895,23 +895,21 @@ scene.add(smokePoints);
 function spawnSmoke(pos, vel, intensity) {
   const i = smokeCursor;
   smokeCursor = (smokeCursor + 1) % SMOKE_MAX;
-  smokePositions[i*3+0] = pos.x + (Math.random()-0.5)*0.6;
-  smokePositions[i*3+1] = pos.y + Math.random()*0.3;
-  smokePositions[i*3+2] = pos.z + (Math.random()-0.5)*0.6;
-  smokeVel[i*3+0] = vel.x * 0.15 + (Math.random()-0.5)*0.03;
-  smokeVel[i*3+1] = 0.02 + Math.random()*0.03;
-  smokeVel[i*3+2] = vel.z * 0.15 + (Math.random()-0.5)*0.03;
+  smokePositions[i*3+0] = pos.x + (Math.random()-0.5)*1.5;
+  smokePositions[i*3+1] = pos.y + Math.random()*0.75;
+  smokePositions[i*3+2] = pos.z + (Math.random()-0.5)*1.5;
+  smokeVel[i*3+0] = vel.x * 0.15 + (Math.random()-0.5)*0.075;
+  smokeVel[i*3+1] = 0.05 + Math.random()*0.075;
+  smokeVel[i*3+2] = vel.z * 0.15 + (Math.random()-0.5)*0.075;
   smokeLife[i] = 0.7 + Math.random()*0.7;
   smokeAlphas[i] = Math.min(0.85, 0.3 + intensity);
-  // === x2: частицы дыма крупнее ===
-  smokeSizes[i] = 0.8 + Math.random()*0.9;
+  smokeSizes[i] = 2.0 + Math.random()*2.25;
 }
 
 function updateSmoke(driftIntensity, launchIntensity) {
   if (!currentCar) return;
 
-  // === x2: точка выхода дыма отодвинута по Z ===
-  const back = new THREE.Vector3(0, 0.7, 1.9).applyEuler(currentCar.rotation).add(currentCar.position);
+  const back = new THREE.Vector3(0, 1.75, 4.75).applyEuler(currentCar.rotation).add(currentCar.position);
 
   const total = driftIntensity + launchIntensity;
   if (total > 0.05) {
@@ -925,8 +923,8 @@ function updateSmoke(driftIntensity, launchIntensity) {
       smokePositions[i*3+0] += smokeVel[i*3+0];
       smokePositions[i*3+1] += smokeVel[i*3+1];
       smokePositions[i*3+2] += smokeVel[i*3+2];
-      smokeVel[i*3+1] += 0.0004;
-      smokeSizes[i] += 0.015;
+      smokeVel[i*3+1] += 0.001;
+      smokeSizes[i] += 0.0375;
       smokeAlphas[i] *= 0.975;
       if (smokeLife[i] <= 0) { smokeAlphas[i] = 0; smokePositions[i*3+1] = -9999; }
     }
@@ -937,13 +935,13 @@ function updateSmoke(driftIntensity, launchIntensity) {
 }
 
 // ============================================================
-// 15. ФИЗИКА: ДРИФТ
+// 15. ФИЗИКА: ДРИФТ (скорость x2.5)
 // ============================================================
-const ENGINE_FORCE = 0.020;
-const REVERSE_FORCE = 0.012;
-const MAX_SPEED = 0.52;
-const SLOW_MAX_SPEED = 0.40;
-const TANK_MAX_SPEED = 0.23;
+const ENGINE_FORCE = 0.050;
+const REVERSE_FORCE = 0.030;
+const MAX_SPEED = 1.30;
+const SLOW_MAX_SPEED = 1.00;
+const TANK_MAX_SPEED = 0.58;
 const TURN_SPEED = 0.032;
 const FRICTION_LONG = 0.995;
 
@@ -1031,7 +1029,8 @@ function updateCar() {
   currentCar.rotation.y = carState.rotation + baseRot + driftYawVisual * 0.15;
   currentCar.rotation.z = -steerInput * Math.min(speedAbs * 0.8, 0.06);
 
-  document.getElementById('speedDisplay').textContent = Math.round(carState.velocity.length() * 150);
+  // HUD: коэффициент 55 (было 150)
+  document.getElementById('speedDisplay').textContent = Math.round(carState.velocity.length() * 55);
   document.getElementById('coordDisplay').textContent =
     `📍 ${carState.position.x.toFixed(2)} · ${carState.position.y.toFixed(2)} · ${carState.position.z.toFixed(2)}`;
 
@@ -1042,10 +1041,10 @@ function updateCar() {
 }
 
 // ============================================================
-// 16. КАМЕРА (отодвинута под x2 модели)
+// 16. КАМЕРА (сужена под новую скорость)
 // ============================================================
-const CAM_MIN = 8.0, CAM_MAX = 13.0, CAM_H = 5.5, CAM_SMOOTH = 0.10;
-let camTarget = new THREE.Vector3(0, 1.0, 0);
+const CAM_MIN = 18.0, CAM_MAX = 30.0, CAM_H = 12.0, CAM_SMOOTH = 0.10;
+let camTarget = new THREE.Vector3(0, 2.5, 0);
 
 function updateCamera() {
   if (!currentCar || !carLoaded) return;
@@ -1053,7 +1052,7 @@ function updateCamera() {
   const speed = carState.velocity.length();
   const f = Math.min(speed / MAX_SPEED, 1);
   const dist = CAM_MIN + (CAM_MAX - CAM_MIN) * f * 0.6;
-  const h = info.isCybertruck ? 7.5 : CAM_H;
+  const h = info.isCybertruck ? 18.75 : CAM_H;
 
   const a = carState.rotation;
   const desired = new THREE.Vector3(
@@ -1064,7 +1063,7 @@ function updateCamera() {
   camera.position.lerp(desired, CAM_SMOOTH);
 
   const look = currentCar.position.clone();
-  look.y += info.isCybertruck ? 1.8 : 1.0;
+  look.y += info.isCybertruck ? 4.5 : 2.5;
   camTarget.lerp(look, CAM_SMOOTH);
   camera.lookAt(camTarget);
 }
@@ -1107,7 +1106,7 @@ function updateMinimap() {
 
   mmCtx.strokeStyle = 'rgba(255,204,0,0.5)';
   mmCtx.beginPath();
-  mmCtx.arc(toX(0), toY(0), (9 / (BOUNDARY*2)) * W, 0, Math.PI*2);
+  mmCtx.arc(toX(0), toY(0), (22.5 / (BOUNDARY*2)) * W, 0, Math.PI*2);
   mmCtx.stroke();
 
   if (currentCar && carLoaded) {
@@ -1144,7 +1143,7 @@ function animate() {
 }
 animate();
 
-console.log('🏟️ Drift Arena запущена (модели x2)');
+console.log('🏟️ Drift Arena запущена (модели x5, скорость x2.5)');
 console.log('📖 W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник');
 console.log('💨 Дым: при резком старте и при заносе/ручнике');
 </script>
