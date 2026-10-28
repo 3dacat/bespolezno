@@ -18,6 +18,7 @@ body { overflow:hidden; font-family:'Segoe UI', system-ui, sans-serif; backgroun
 #hud .coords { font-size:.8rem; color:#88ddff; font-family:'Courier New', monospace; margin-top:4px; }
 #hud .model-name { font-size:.9rem; color:#ff6b35; font-weight:500; margin-top:2px; }
 #hud .players-count { font-size:.7rem; color:#88ff88; margin-top:2px; }
+#hud .boost-indicator { font-size:.7rem; color:#ffcc00; margin-top:2px; min-height:1em; }
 
 #controls-hint {
   position:absolute; top:20px; left:50%; transform:translateX(-50%); z-index:10;
@@ -190,7 +191,8 @@ body { overflow:hidden; font-family:'Segoe UI', system-ui, sans-serif; backgroun
 
 <div id="controls-hint">
   <strong>W / ↑</strong> — вперёд &nbsp;·&nbsp; <strong>S / ↓</strong> — назад &nbsp;·&nbsp;
-  <strong>A / ←</strong> <strong>D / →</strong> — руль &nbsp;·&nbsp; <strong>Пробел</strong> — ручник (дрифт)
+  <strong>A / ←</strong> <strong>D / →</strong> — руль &nbsp;·&nbsp; <strong>Пробел</strong> — ручник &nbsp;·&nbsp;
+  <strong>Shift</strong> — ускорение
 </div>
 
 <div id="mpToggle">🌐</div>
@@ -241,6 +243,7 @@ body { overflow:hidden; font-family:'Segoe UI', system-ui, sans-serif; backgroun
   <div class="coords" id="coordDisplay">📍 0.00 · 0.00 · 0.00</div>
   <div class="players-count" id="playersCount">👤 Игроков: 1</div>
   <div class="model-name" id="modelNameDisplay">🚗 BEEMWA 22</div>
+  <div class="boost-indicator" id="boostIndicator"></div>
 </div>
 
 <div id="loading">
@@ -546,8 +549,10 @@ const carState = {
 };
 
 // ============================================================
-// 7. ЗАГРУЗКА МОДЕЛЕЙ (x5 от оригинала)
+// 7. ЗАГРУЗКА МОДЕЛЕЙ (единый размер = размер Hypertrick)
 // ============================================================
+const MODEL_TARGET_SIZE = 12.5; // все машины такие же, как Hypertrick
+
 function loadModel(modelId, filePath) {
   return new Promise((resolve, reject) => {
     const info = modelsList.find(m => m.id === modelId);
@@ -558,9 +563,8 @@ function loadModel(modelId, filePath) {
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z);
 
-      const targetSize = info.isCybertruck ? 12.5 : 8.0;
       if (maxDim > 0.01) {
-        const s = targetSize / maxDim;
+        const s = MODEL_TARGET_SIZE / maxDim;
         model.scale.setScalar(s);
       }
 
@@ -628,10 +632,10 @@ async function init() {
       document.getElementById('creditText').textContent = first.credit;
     } else {
       const dummy = new THREE.Mesh(
-        new THREE.BoxGeometry(8, 4, 15),
+        new THREE.BoxGeometry(12.5, 6, 24),
         new THREE.MeshStandardMaterial({ color: 0xff6b35, roughness: 0.4 })
       );
-      dummy.position.y = 2;
+      dummy.position.y = 3;
       dummy.castShadow = true;
       scene.add(dummy);
       currentCar = dummy;
@@ -832,14 +836,16 @@ document.getElementById('stickerFileInput').addEventListener('change', e => {
 });
 
 // ============================================================
-// 13. ВВОД
+// 13. ВВОД (+ Shift — ускорение)
 // ============================================================
-const keys = { w:false, s:false, a:false, d:false, up:false, down:false, left:false, right:false, space:false };
+const keys = { w:false, s:false, a:false, d:false, up:false, down:false, left:false, right:false, space:false, shift:false };
+
 function setKey(e, down) {
   const k = e.key;
   const map = {
     'w':'w','W':'w','s':'s','S':'s','a':'a','A':'a','d':'d','D':'d',
-    'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ':'space'
+    'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ':'space',
+    'Shift':'shift'
   };
   if (map[k]) {
     keys[map[k]] = down;
@@ -849,8 +855,11 @@ function setKey(e, down) {
 document.addEventListener('keydown', e => setKey(e, true));
 document.addEventListener('keyup',   e => setKey(e, false));
 
+// Сброс Shift, если окно теряет фокус (иначе «залипает»)
+window.addEventListener('blur', () => { keys.shift = false; });
+
 // ============================================================
-// 14. ДЫМ (эмиттер СЗАДИ: −Z)
+// 14. ДЫМ (эмиттер сзади: −Z)
 // ============================================================
 const SMOKE_MAX = 160;
 const smokeGeo = new THREE.BufferGeometry();
@@ -909,7 +918,6 @@ function spawnSmoke(pos, vel, intensity) {
 function updateSmoke(driftIntensity, launchIntensity) {
   if (!currentCar) return;
 
-  // === ИСПРАВЛЕНИЕ: эмиттер сзади (−Z), а не спереди (+Z) ===
   const back = new THREE.Vector3(0, 1.75, -4.75).applyEuler(currentCar.rotation).add(currentCar.position);
 
   const total = driftIntensity + launchIntensity;
@@ -936,7 +944,7 @@ function updateSmoke(driftIntensity, launchIntensity) {
 }
 
 // ============================================================
-// 15. ФИЗИКА: ДРИФТ (скорость ×2 от версии, где «ползло»)
+// 15. ФИЗИКА: ДРИФТ + BOOST (Shift)
 // ============================================================
 const ENGINE_FORCE = 0.040;
 const REVERSE_FORCE = 0.024;
@@ -945,6 +953,10 @@ const SLOW_MAX_SPEED = 0.80;
 const TANK_MAX_SPEED = 0.46;
 const TURN_SPEED = 0.032;
 const FRICTION_LONG = 0.995;
+
+// === BOOST (Shift) ===
+const BOOST_ENGINE_MULT = 2.0;   // тяга ×2 при Shift
+const BOOST_MAX_SPEED_MULT = 1.5; // максималка ×1.5 при Shift
 
 const GRIP_FRONT = 0.92;
 const GRIP_REAR = 0.55;
@@ -970,6 +982,8 @@ function updateCar() {
   if (keys.d || keys.right)steerInput = -1;
 
   const handbrake = keys.space;
+  const boosting = keys.shift && throttle < 0; // boost только вперёд
+
   const targetRear = handbrake ? GRIP_REAR_HANDBRAKE : GRIP_REAR;
   gripRearCurrent += (targetRear - gripRearCurrent) * 0.18;
 
@@ -979,7 +993,8 @@ function updateCar() {
   let vF = carState.velocity.dot(forward);
   let vL = carState.velocity.dot(right);
 
-  if (throttle < 0) vF -= ENGINE_FORCE;
+  const engineForce = ENGINE_FORCE * (boosting ? BOOST_ENGINE_MULT : 1);
+  if (throttle < 0) vF -= engineForce;
   if (throttle > 0) vF += REVERSE_FORCE;
 
   if (throttle < 0 && prevThrottle >= 0 && Math.abs(vF) < 0.05) {
@@ -1009,6 +1024,7 @@ function updateCar() {
   const spd = carState.velocity.length();
   let maxS = isTank ? TANK_MAX_SPEED : MAX_SPEED;
   if (!isFast && !isTank) maxS = SLOW_MAX_SPEED;
+  if (boosting) maxS *= BOOST_MAX_SPEED_MULT;
   if (spd > maxS) carState.velocity.multiplyScalar(maxS / spd);
 
   if (carState.velocity.length() < 0.001) carState.velocity.set(0, 0, 0);
@@ -1033,6 +1049,7 @@ function updateCar() {
   document.getElementById('speedDisplay').textContent = Math.round(carState.velocity.length() * 75);
   document.getElementById('coordDisplay').textContent =
     `📍 ${carState.position.x.toFixed(2)} · ${carState.position.y.toFixed(2)} · ${carState.position.z.toFixed(2)}`;
+  document.getElementById('boostIndicator').textContent = boosting ? '⚡ BOOST' : '';
 
   const driftIntensity = Math.max(0, Math.abs(vL) - 0.015) * 6;
   if (launchTimer > 0) launchTimer -= 0.016;
@@ -1143,9 +1160,8 @@ function animate() {
 }
 animate();
 
-console.log('🏟️ Drift Arena запущена (дым сзади, скорость ×2)');
-console.log('📖 W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник');
-console.log('💨 Дым: при резком старте и при заносе/ручнике');
+console.log('🏟️ Drift Arena запущена (единый размер моделей, дым сзади, Shift — boost)');
+console.log('📖 W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник, Shift — ускорение');
 </script>
 </body>
 </html>
