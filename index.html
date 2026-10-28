@@ -850,7 +850,7 @@ document.addEventListener('keydown', e => setKey(e, true));
 document.addEventListener('keyup',   e => setKey(e, false));
 
 // ============================================================
-// 14. ДЫМ
+// 14. ДЫМ (эмиттер СЗАДИ: −Z)
 // ============================================================
 const SMOKE_MAX = 160;
 const smokeGeo = new THREE.BufferGeometry();
@@ -909,7 +909,8 @@ function spawnSmoke(pos, vel, intensity) {
 function updateSmoke(driftIntensity, launchIntensity) {
   if (!currentCar) return;
 
-  const back = new THREE.Vector3(0, 1.75, 4.75).applyEuler(currentCar.rotation).add(currentCar.position);
+  // === ИСПРАВЛЕНИЕ: эмиттер сзади (−Z), а не спереди (+Z) ===
+  const back = new THREE.Vector3(0, 1.75, -4.75).applyEuler(currentCar.rotation).add(currentCar.position);
 
   const total = driftIntensity + launchIntensity;
   if (total > 0.05) {
@@ -935,13 +936,13 @@ function updateSmoke(driftIntensity, launchIntensity) {
 }
 
 // ============================================================
-// 15. ФИЗИКА: ДРИФТ (скорость x2.5)
+// 15. ФИЗИКА: ДРИФТ (скорость ×2 от версии, где «ползло»)
 // ============================================================
-const ENGINE_FORCE = 0.050;
-const REVERSE_FORCE = 0.030;
-const MAX_SPEED = 1.30;
-const SLOW_MAX_SPEED = 1.00;
-const TANK_MAX_SPEED = 0.58;
+const ENGINE_FORCE = 0.040;
+const REVERSE_FORCE = 0.024;
+const MAX_SPEED = 1.04;
+const SLOW_MAX_SPEED = 0.80;
+const TANK_MAX_SPEED = 0.46;
 const TURN_SPEED = 0.032;
 const FRICTION_LONG = 0.995;
 
@@ -1029,8 +1030,7 @@ function updateCar() {
   currentCar.rotation.y = carState.rotation + baseRot + driftYawVisual * 0.15;
   currentCar.rotation.z = -steerInput * Math.min(speedAbs * 0.8, 0.06);
 
-  // HUD: коэффициент 55 (было 150)
-  document.getElementById('speedDisplay').textContent = Math.round(carState.velocity.length() * 55);
+  document.getElementById('speedDisplay').textContent = Math.round(carState.velocity.length() * 75);
   document.getElementById('coordDisplay').textContent =
     `📍 ${carState.position.x.toFixed(2)} · ${carState.position.y.toFixed(2)} · ${carState.position.z.toFixed(2)}`;
 
@@ -1041,7 +1041,7 @@ function updateCar() {
 }
 
 // ============================================================
-// 16. КАМЕРА (сужена под новую скорость)
+// 16. КАМЕРА
 // ============================================================
 const CAM_MIN = 18.0, CAM_MAX = 30.0, CAM_H = 12.0, CAM_SMOOTH = 0.10;
 let camTarget = new THREE.Vector3(0, 2.5, 0);
@@ -1143,7 +1143,7 @@ function animate() {
 }
 animate();
 
-console.log('🏟️ Drift Arena запущена (модели x5, скорость x2.5)');
+console.log('🏟️ Drift Arena запущена (дым сзади, скорость ×2)');
 console.log('📖 W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник');
 console.log('💨 Дым: при резком старте и при заносе/ручнике');
 </script>
