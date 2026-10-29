@@ -858,9 +858,9 @@ document.addEventListener('keyup',   e => setKey(e, false));
 window.addEventListener('blur', () => { keys.shift = false; });
 
 // ============================================================
-// 14. ДЫМ — ДВА ЭМИТТЕРА (левое и правое заднее колесо)
+// 14. ДЫМ — 2 источника снизу + 3-й сверху для Poganka
 // ============================================================
-const SMOKE_MAX = 200;
+const SMOKE_MAX = 220;
 const smokeGeo = new THREE.BufferGeometry();
 const smokePositions = new Float32Array(SMOKE_MAX * 3);
 const smokeAlphas = new Float32Array(SMOKE_MAX);
@@ -914,9 +914,11 @@ function spawnSmoke(pos, vel, intensity) {
   smokeSizes[i] = 2.0 + Math.random()*2.25;
 }
 
-// Локальные смещения двух «колёсных» эмиттеров (X ±, сзади −Z, чуть вверх)
-const EMITTER_LEFT  = new THREE.Vector3(-2.0, 1.75, -4.75);
-const EMITTER_RIGHT = new THREE.Vector3( 2.0, 1.75, -4.75);
+// Нижние эмиттеры (опущены: Y 1.75 → 0.9)
+const EMITTER_LEFT  = new THREE.Vector3(-2.0, 0.9, -4.75);
+const EMITTER_RIGHT = new THREE.Vector3( 2.0, 0.9, -4.75);
+// Третий, только для Poganka — сверху по центру кузова
+const EMITTER_PAGANI_TOP = new THREE.Vector3(0, 3.2, -1.0);
 
 function updateSmoke(driftIntensity, launchIntensity) {
   if (!currentCar) return;
@@ -924,11 +926,18 @@ function updateSmoke(driftIntensity, launchIntensity) {
   const total = driftIntensity + launchIntensity;
   if (total > 0.05) {
     const count = Math.min(4, Math.ceil(total * 8));
+    const isPagani = currentModelId === 'pagani';
+
     for (let k = 0; k < count; k++) {
       const leftPos  = EMITTER_LEFT.clone().applyEuler(currentCar.rotation).add(currentCar.position);
       const rightPos = EMITTER_RIGHT.clone().applyEuler(currentCar.rotation).add(currentCar.position);
       spawnSmoke(leftPos,  carState.velocity, total);
       spawnSmoke(rightPos, carState.velocity, total);
+
+      if (isPagani) {
+        const topPos = EMITTER_PAGANI_TOP.clone().applyEuler(currentCar.rotation).add(currentCar.position);
+        spawnSmoke(topPos, carState.velocity, total);
+      }
     }
   }
 
@@ -1165,7 +1174,7 @@ function animate() {
 }
 animate();
 
-console.log('🏟️ Drift Arena (2 источника дыма, единый размер моделей, Shift — boost)');
+console.log('🏟️ Drift Arena (2 источника снизу, 3-й сверху для Poganka)');
 console.log('📖 W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник, Shift — ускорение');
 </script>
 </body>
