@@ -858,7 +858,7 @@ document.addEventListener('keyup',   e => setKey(e, false));
 window.addEventListener('blur', () => { keys.shift = false; });
 
 // ============================================================
-// 14. ДЫМ — 2 источника снизу + 3-й сверху для Poganka
+// 14. ДЫМ — 2 источника снизу + 3-й над ними для Poganka
 // ============================================================
 const SMOKE_MAX = 220;
 const smokeGeo = new THREE.BufferGeometry();
@@ -914,11 +914,11 @@ function spawnSmoke(pos, vel, intensity) {
   smokeSizes[i] = 2.0 + Math.random()*2.25;
 }
 
-// Нижние эмиттеры (опущены: Y 1.75 → 0.9)
+// Нижние эмиттеры
 const EMITTER_LEFT  = new THREE.Vector3(-2.0, 0.9, -4.75);
 const EMITTER_RIGHT = new THREE.Vector3( 2.0, 0.9, -4.75);
-// Третий, только для Poganka — сверху по центру кузова
-const EMITTER_PAGANI_TOP = new THREE.Vector3(0, 3.2, -1.0);
+// Третий, только для Poganka: тот же X/Z, что у нижних (по центру колеи), но заметно выше
+const EMITTER_PAGANI_TOP = new THREE.Vector3(0, 3.2, -4.75);
 
 function updateSmoke(driftIntensity, launchIntensity) {
   if (!currentCar) return;
@@ -1174,7 +1174,7 @@ function animate() {
 }
 animate();
 
-console.log('🏟️ Drift Arena (2 источника снизу, 3-й сверху для Poganka)');
+console.log('🏟️ Drift Arena (2 источника снизу, 3-й сверху над ними для Poganka)');
 console.log('📖 W/↑ — вперёд, S/↓ — назад, A/←, D/→ — руль, Пробел — ручник, Shift — ускорение');
 </script>
 </body>
